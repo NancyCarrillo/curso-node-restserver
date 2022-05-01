@@ -1,34 +1,36 @@
-const { response } = require('express');
+const { response, request } = require('express');
 const bcryptjs = require('bcryptjs');
 const Usuario = require('../models/usuario');
 
 
-const usuariosGet = (req, res = response) => {
+const usuariosGet = async (req, res = response) => {
 
-    const { q, nombre = 'no name', apikey } = req.query;
+    // const { q, nombre = 'no name', apikey } = req.query;
+    const {limite = 5 , desde = 0}= req.query;
+    const query = {estado:true}
+    // const usuarios = await Usuario.find(query)
+    // .skip(Number( desde ))
+    // .limit(Number( limite ));
 
+    // const total = await Usuario.countDocuments(query);
+    // coleccion de promesas
+    const [total, usuarios] = await Promise.all([
+        Usuario.countDocuments(query),
+        Usuario.find(query)
+            .skip(Number( desde ))
+            .limit(Number( limite ))
+    ]);
     res.json({
-        msg: 'get API - controladorGet',
-        q,
-        nombre,
-        apikey
+        total,
+        usuarios
     })
 }
 
 const usuariosPost = async (req, res = response) => {
     // crear midleware personalizado 
-
-   
-
     const { nombre, password, correo, rol } = req.body;
     // verifica correo
-    const verificaEmail = await Usuario.findOne({ correo });
 
-    if (verificaEmail) {
-        return res.status(400).json({
-            msg: 'El correo ya existe '
-        });
-    }
     const salt = bcryptjs.genSaltSync();
 
     const data = {
@@ -42,23 +44,33 @@ const usuariosPost = async (req, res = response) => {
     try {
         await usuario.save();
         res.status(200).json({
-            data,
+            // data,
             usuario,
             msg: 'post API - controladorPost',
 
         })
     } catch (error) {
-        res.status(500).json({msg:'Error al guardar usuario',error});
+        res.status(500).json({ msg: 'Error al guardar usuario', error });
 
     }
 
 }
 
-const usuariosPut = (req, res = response) => {
-    const id = req.params.id;
+const usuariosPut = async  (req, res = response) => {
+    const { id } = req.params;
+
+    const { _id, password, google, correo, ...resto } = req.body;
+        
+    if (password) {
+        const salt = bcryptjs.genSaltSync();
+        resto.password = bcryptjs.hashSync(password, salt);
+
+    }
+    const usuario = await Usuario.findByIdAndUpdate( id, resto );
+
     res.json({
-        msg: 'put API -controladorPut',
-        id
+        // msg: 'put API -controladorPut',
+        usuario
     })
 }
 
